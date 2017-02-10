@@ -1,0 +1,736 @@
+﻿<!DOCTYPE HTML>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta charset="utf-8">
+<meta name="viewport" content="user-scalable=0 initial-scale=1.0" />
+<title>Snake Training</title>
+</head>
+<body>
+<div id="container" style="width:340px;height:400px;border:1px solid;margin:0px auto"></div>
+<p align="center">
+Time<input id="ttimer" style="width:100px;text-align:center" type="text" readonly="readonly"/>
+Score <input id="tscore" style="width:100px;text-align:center" type="text" readonly="readonly"/>
+</p><p align="center">
+Maze
+<input id="btnpm" value="－" style="width:30px;text-align:center" type="button"/>
+<input id="btnnm" value="＋" style="width:30px;text-align:center" type="button"/>
+<input id="btnpause" value="Pause" style="width:60px;text-align:center" type="button"/>
+<input id="btnrt" value="Replay" style="width:60px;text-align:center" type="button"/>
+</p>
+<script src="display_object.js" type="text/javascript"></script>
+<script type="text/javascript">
+var mouseX=0,mouseY=0;
+var columnCount=17;
+var rowCount=20;
+var groupWidth=25;
+var groupHeight=25;
+
+var levelCount=11;
+var mapid=1;
+
+//var bgc="";
+var bgc="#000";
+var textColor="#fff"
+
+
+var brick;//砖块组
+var i,j,k;//循环变量
+var xf=6,yf=rowCount-2;//下一点坐标
+var snakex;//蛇的各点横坐标
+var snakey;//蛇的各点纵坐标
+var score=0;
+var playedtime=0;
+var sp1count=0;
+var losed=false;
+var interval=275;
+var fadeInterval=50;
+var highscore=new Array(levelCount);
+var hstime=new Array(levelCount);
+var intervalID=0;
+var fadeIntervalID=0;
+var recordable=false;
+var hasFadingFood=false;
+window.onload=initial;
+
+//movie varibles
+var tscore;
+var ttimer;
+var btnpm;
+var btnnm;
+var btnrt;
+var btnpause;
+var dialog0;
+var titleMC;
+
+function initial(evt){
+	evt=evt||window.event;
+	container=document.getElementById("container");
+	tscore=document.getElementById("tscore");
+	ttimer=document.getElementById("ttimer");
+	btnpause=document.getElementById("btnpause");
+	btnrt=document.getElementById("btnrt");
+	btnpm=document.getElementById("btnpm");
+	btnnm=document.getElementById("btnnm");
+	
+	container.style.position="relative";
+	groupWidth=container.offsetWidth/columnCount;
+	groupHeight=container.offsetHeight/rowCount;
+	
+	if(bgc && bgc!=""){
+		document.body.style.background=bgc;
+		tscore.style.background=bgc;
+		ttimer.style.background=bgc;
+		tscore.style.border="1px solid #666666";
+		ttimer.style.border="1px solid #666666";
+	}
+	if(textColor && textColor!=""){
+		document.body.style.color=textColor;
+		tscore.style.color=textColor;
+		ttimer.style.color=textColor;
+	}
+	
+	for(i=0;i<levelCount;i++){
+		highscore[i]=0;
+		hstime[i]=0;
+	}
+	container.innerHTML="";
+	brick=new Array(columnCount);
+	for(i=0;i<columnCount;i++){
+		brick[i]=new Array(rowCount);
+		for(j=0;j<rowCount;j++){
+			brick[i][j]=newBrick();
+			brick[i][j].style.left=(groupWidth*i)+"px";
+			brick[i][j].style.top=(groupHeight*j)+"px";
+			container.appendChild(brick[i][j]);
+		}
+	}
+	changeMap(mapid);
+	//removeChild(dialog0,document.body);
+	//addChild(dialog0,document.body);
+	//dialog0.visible=false;
+	document.onmousedown=fmdn;
+	document.onmouseup=fmup;	
+	//document.ontouchstart=fmdn;
+	document.onkeydown=onkeydown;
+	btnpause.onmousedown=fpause;
+	btnpm.onmousedown=fpm;
+	btnnm.onmousedown=fnm;
+	btnrt.onmousedown=frt;
+	if(fadeIntervalID!=0){
+		clearInterval(fadeIntervalID);
+		fadeIntervalID=0;
+	}
+	fadeIntervalID=setInterval(onFoodFade,fadeInterval);
+}
+
+function newBrick(){
+	var brick0=document.createElement("img");
+	brick0.width=Math.ceil(groupWidth);
+	brick0.height=Math.ceil(groupHeight);
+	brick0.style.opacity=1;
+	brick0.style.position="absolute";
+	brick_gotoAndStop(brick0,1);
+	return brick0;
+}
+
+function brick_gotoAndStop(brick0,n){
+	if(n<=0)n=1;
+	if(n>10)n=10;
+	brick0.currentFrame=n;
+	brick0.src="images/Bitmap "+n+".png";
+	if(n==1){
+		brick0.style.visibility="hidden";
+	}else{
+		brick0.style.visibility="visible";
+	}
+	if(n==10){
+		brick0.fadeCount=0;
+		brick0.style.opacity=1;
+	}else{
+		brick0.fadeCount=-1;
+		brick0.style.opacity=1;
+	}
+}
+
+function snaketimer(){
+	
+	if(xf<0){
+		xf=columnCount-1;
+	}else if(xf>columnCount-1){
+		xf=0;
+	}
+	if(yf<0){
+		yf=rowCount-1;
+	}else if(yf>rowCount-1){
+		yf=0;
+	}
+	var emptyArray;
+	if(brick[xf][yf].currentFrame==1||brick[xf][yf].currentFrame>=9){
+		snakex.push(xf);
+		snakey.push(yf);
+		if(brick[xf][yf].currentFrame>=10){
+			if(mapid==0){
+				score+=70-brick[xf][yf].currentFrame;
+			}else if(mapid==1){
+				score+=80-brick[xf][yf].currentFrame;
+			}else if(mapid==2){
+				score+=76-brick[xf][yf].currentFrame;
+			}else if(mapid==3){
+				score+=74-brick[xf][yf].currentFrame;
+			}else if(mapid==4){
+				score+=80-brick[xf][yf].currentFrame;
+			}else if(mapid==5){
+				score+=75-brick[xf][yf].currentFrame;
+			}else if(mapid==6){
+				score+=80-brick[xf][yf].currentFrame;
+			}else if(mapid==7){
+				score+=90-brick[xf][yf].currentFrame;
+			}else if(mapid==8){
+				score+=120-brick[xf][yf].currentFrame;
+			}else if(mapid==9){
+				score+=90-brick[xf][yf].currentFrame;
+			}else{
+				score+=80-brick[xf][yf].currentFrame;
+			}
+			tscore.value=String(score);
+			//(new EatSound2()).play();
+		}else if(brick[xf][yf].currentFrame==9){
+			if(mapid!=10||score>=600){
+				emptyArray=[];
+				for(i=0;i<columnCount;i++){
+					for(j=0;j<rowCount;j++){
+						if(brick[i][j].currentFrame==1){
+							emptyArray.push(i);
+							emptyArray.push(j);
+						}
+					}
+				}
+				if(emptyArray.length>=2){
+					i=parseInt(Math.random()*(emptyArray.length>>1));
+					if(i>=(emptyArray.length>>1))i=(emptyArray.length>>1)-1;
+					brick_gotoAndStop(brick[emptyArray[2*i]][emptyArray[2*i+1]],9);
+				}
+			}
+			if(mapid==0){
+				score+=5;
+			}else if(mapid==1){
+				score+=7;
+			}else if(mapid==2){
+				score+=6;
+			}else if(mapid==3){
+				score+=6;
+			}else if(mapid==4){
+				score+=7;
+			}else if(mapid==5){
+				score+=8;
+			}else if(mapid==6){
+				score+=9;
+			}else if(mapid==7){
+				score+=12;
+			}else if(mapid==8){
+				score+=rowCount-1;
+			}else if(mapid==9){
+				score+=10;
+			}else{
+				score+=10;
+			}
+			tscore.value=String(score);
+			//(new EatSound()).play();
+			if(sp1count>=4){
+				if(mapid!=10||score>=600){
+					emptyArray=[];
+					for(i=0;i<columnCount;i++){
+						for(j=0;j<rowCount;j++){
+							if(brick[i][j].currentFrame==1){
+								emptyArray.push(i);
+								emptyArray.push(j);
+							}
+						}
+					}
+					if(emptyArray.length>=2){
+						i=parseInt(Math.random()*(emptyArray.length>>1));
+						if(i>=(emptyArray.length>>1))i=(emptyArray.length>>1)-1;
+						brick_gotoAndStop(brick[emptyArray[2*i]][emptyArray[2*i+1]],10);
+						hasFadingFood=true;
+					}
+				}
+				sp1count=0;
+			}else{
+				sp1count++;
+			}
+		}else{
+			brick_gotoAndStop(brick[snakex[0]][snakey[0]],1);
+			snakex.shift();
+			snakey.shift();
+		}
+		if(xf==columnCount-1&&snakex[snakex.length-2]==0){
+			xf=columnCount-2;
+		}else if(xf==0&&snakex[snakex.length-2]==columnCount-1){
+			xf=1;
+		}else{
+			xf+=xf-snakex[snakex.length-2];
+		}
+		if(yf==rowCount-1&&snakey[snakey.length-2]==0){
+			yf=rowCount-2;
+		}else if(yf==0&&snakey[snakey.length-2]==rowCount-1){
+			yf=1;
+		}else{
+			yf+=yf-snakey[snakey.length-2];
+		}
+		brick_gotoAndStop(brick[snakex[snakex.length-2]][snakey[snakex.length-2]],2);
+		brick_gotoAndStop(brick[snakex[snakex.length-1]][snakey[snakex.length-1]],6);
+		playedtime++;
+		var ntimer=playedtime*interval/1000;
+		ttimer.value=ntimer.toFixed(1);
+		/*if (playedtime%10==0) {
+			ttimer.appendText(".0");
+		}*/
+	}else{
+		for(i=0;i<snakex.length;i++){
+			brick_gotoAndStop(brick[snakex[i]][snakey[i]],4);
+		}
+		losed=true;
+		//(new LoseSound()).play();
+		clearInterval(intervalID);
+		intervalID=0;
+		document.onmouseup=fmup;
+	}
+}
+
+
+function onFoodFade(){
+	if(!hasFadingFood){// || intervalID==0){
+		return;
+	}
+	var i=0,j=0;
+	var hasFadingFoodt=false;
+	for(i=0;i<brick.length;i++){
+		for(j=0;j<brick[i].length;j++){
+			if(brick[i][j].currentFrame<10 || brick[i][j].fadeCount<0){
+				continue;
+			}
+			hasFadingFoodt=true;
+			//brick[i][j].fadeCount+=(interval+0.0)/fadeInterval;	
+			brick[i][j].fadeCount+=fadeInterval/100.0;
+			if(brick[i][j].fadeCount>=60){
+				brick_gotoAndStop(brick[i][j],1);
+				brick[i][j].style.opacity=1;
+				continue;
+			}
+			if(brick[i][j].fadeCount<50){
+				brick[i][j].style.opacity=0.9+0.1*Math.cos(brick[i][j].fadeCount*(2*Math.PI)/10);
+			}else{
+				brick[i][j].style.opacity=Math.cos((brick[i][j].fadeCount-50)*(2*Math.PI)/20);
+			}
+		}
+	}
+	if(!hasFadingFoodt){
+		hasFadingFood=false;
+	}
+}
+var turnSoundVolume=0.23;
+function onkeydown(event){
+	event=event||window.event;
+	var keyCode=window.event?event.keyCode:event.which;
+	if(losed){
+		changeMap(mapid);
+	}
+	losed=false;
+	if(intervalID==0){
+		intervalID=setInterval(snaketimer,interval);
+	}
+	if(keyCode==38||keyCode==87){
+		xf=snakex[snakex.length-1];
+		yf=snakey[snakey.length-1]-1;
+		//(new TurnSound()).play(0,0,new SoundTransform(turnSoundVolume));
+	}else if(keyCode==40||keyCode==83){
+		xf=snakex[snakex.length-1];
+		yf=snakey[snakey.length-1]+1;
+		//(new TurnSound()).play(0,0,new SoundTransform(turnSoundVolume));
+	}else if(keyCode==37||keyCode==65){
+		xf=snakex[snakex.length-1]-1;
+		yf=snakey[snakey.length-1];
+		//(new TurnSound()).play(0,0,new SoundTransform(turnSoundVolume));
+	}else if(keyCode==39||keyCode==68){
+		xf=snakex[snakex.length-1]+1;
+		yf=snakey[snakey.length-1];
+		//(new TurnSound()).play(0,0,new SoundTransform(turnSoundVolume));
+	}
+	if(xf==snakex[snakex.length-2]&&yf==snakey[snakey.length-2]){
+		xf+=2*(snakex[snakex.length-1]-snakex[snakex.length-2]);
+		yf+=2*(snakey[snakey.length-1]-snakey[snakey.length-2]);
+	}
+}
+function fmdn(event){
+	event=event||window.event;
+	updateMouseXY();
+	if(document.onmouseup!=null || mouseY>=container.offsetTop+container.offsetHeight){
+		return;
+	}
+	event.preventDefault();
+	var mxt=mouseX-container.offsetLeft;
+	var myt=mouseY-container.offsetTop;
+	if(yf==snakey[snakey.length-1]&&myt<=groupHeight*snakey[snakey.length-1]+groupHeight*0.5){
+		xf=snakex[snakex.length-1];
+		yf=snakey[snakey.length-1]-1;
+		//(new TurnSound()).play(0,0,new SoundTransform(turnSoundVolume));
+	}else if(yf==snakey[snakey.length-1]&&myt>groupHeight*snakey[snakey.length-1]+groupHeight*0.5){
+		xf=snakex[snakex.length-1];
+		yf=snakey[snakey.length-1]+1;
+		//(new TurnSound()).play(0,0,new SoundTransform(turnSoundVolume));
+	}else if(xf==snakex[snakex.length-1]&&mxt<=groupWidth*snakex[snakex.length-1]+groupWidth*0.5){
+		xf=snakex[snakex.length-1]-1;
+		yf=snakey[snakey.length-1];
+		//(new TurnSound()).play(0,0,new SoundTransform(turnSoundVolume));
+	}else if(xf==snakex[snakex.length-1]&&mxt>groupWidth*snakex[snakex.length-1]+groupWidth*0.5){
+		xf=snakex[snakex.length-1]+1;
+		yf=snakey[snakey.length-1];
+		//(new TurnSound()).play(0,0,new SoundTransform(turnSoundVolume));
+	}
+	if(xf==snakex[snakex.length-2]&&yf==snakey[snakey.length-2]){
+		xf+=2*(snakex[snakex.length-1]-snakex[snakex.length-2]);
+		yf+=2*(snakey[snakey.length-1]-snakey[snakey.length-2]);
+	}
+}
+function brickLine(colour,x0,y0,xt,yt){
+	var n;
+	var d=(yt-y0)/(xt-x0);
+	var m;
+	var temp;
+	if(d<=1&&d>=-1){
+		if(xt<x0){
+			temp=xt;
+			xt=x0;
+			x0=temp;
+			temp=yt;
+			yt=y0;
+			y0=temp;
+		}
+		for(n=x0,m=y0;n<=xt;n++,m+=d){
+			if(n<0 || n>=columnCount || parseInt(m+0.5)<0 || parseInt(m+0.5)>=rowCount)continue;
+			brick_gotoAndStop(brick[n][parseInt(m+0.5)],colour);
+		}
+	}else{
+		if(x0==xt){
+			d=0;
+		}else{
+			d=1/d;
+		}
+		if(yt<y0){
+			temp=xt;
+			xt=x0;
+			x0=temp;
+			temp=yt;
+			yt=y0;
+			y0=temp;
+		}
+		for(n=y0,m=x0;n<=yt;n++,m+=d){
+			if(parseInt(m+0.5)<0 || parseInt(m+0.5)>=columnCount || n<0 || n>=rowCount)continue;
+			brick_gotoAndStop(brick[parseInt(m+0.5)][n],colour);
+		}
+	}
+}
+function changeMap(mapid0){
+	switch(mapid0){
+		case 0:
+			for(i=0;i<columnCount;i++){
+				for(j=0;j<rowCount;j++){
+					brick_gotoAndStop(brick[i][j],1);
+				}
+			}
+			snakex=new Array(1,2,3,4,5);
+			snakey=new Array(rowCount-1,rowCount-1,rowCount-1,rowCount-1,rowCount-1);
+			break;
+		case 1:
+			for(i=0;i<columnCount;i++){
+				for(j=0;j<rowCount;j++){
+					if(i==0||i==columnCount-1||j==0||j==rowCount-1){
+						brick_gotoAndStop(brick[i][j],3);
+					}else{
+						brick_gotoAndStop(brick[i][j],1);
+					}
+				}
+			}
+			snakex=new Array(1,2,3,4,5);
+			snakey=new Array(rowCount-2,rowCount-2,rowCount-2,rowCount-2,rowCount-2);
+			break;
+		case 2:
+			for(i=0;i<columnCount;i++){
+				for(j=0;j<rowCount;j++){
+					if(j==0||j==rowCount-1){
+						brick_gotoAndStop(brick[i][j],3);
+					}else{
+						brick_gotoAndStop(brick[i][j],1);
+					}
+				}
+			}
+			snakex=new Array(1,2,3,4,5);
+			snakey=new Array(rowCount-2,rowCount-2,rowCount-2,rowCount-2,rowCount-2);
+			break;
+		case 3:
+			for(i=0;i<columnCount;i++){
+				for(j=0;j<rowCount;j++){
+					if(i==0||i==columnCount-1){
+						brick_gotoAndStop(brick[i][j],3);
+					}else{
+						brick_gotoAndStop(brick[i][j],1);
+					}
+				}
+			}
+			snakex=new Array(1,2,3,4,5);
+			snakey=new Array(rowCount-1,rowCount-1,rowCount-1,rowCount-1,rowCount-1);
+			break;
+		case 4:
+			for(i=0;i<columnCount;i++){
+				for(j=0;j<rowCount;j++){
+					brick_gotoAndStop(brick[i][j],1);
+				}
+			}
+			brickLine(3,parseInt(columnCount/3)-1,2,parseInt(columnCount/3)-1,rowCount-3);
+			brickLine(3,2*parseInt(columnCount/3)+1,2,2*parseInt(columnCount/3)+1,rowCount-3);
+			snakex=new Array(1,2,3,4,5);
+			snakey=new Array(rowCount-1,rowCount-1,rowCount-1,rowCount-1,rowCount-1);
+			break;
+		case 5:
+			for(i=0;i<columnCount;i++){
+				for(j=0;j<rowCount;j++){
+					if(j==rowCount-1){
+						brick_gotoAndStop(brick[i][j],3);
+					}else{
+						brick_gotoAndStop(brick[i][j],1);
+					}
+				}
+			}
+			brickLine(3,parseInt(columnCount*0.25),1,columnCount-parseInt(columnCount*0.25),1);
+			brickLine(3,parseInt(columnCount*0.5),2,parseInt(columnCount*0.5),rowCount-2);
+			snakex=new Array(1,2,3,4,5);
+			snakey=new Array(rowCount-2,rowCount-2,rowCount-2,rowCount-2,rowCount-2);
+			break;
+		case 6:
+			for(i=0;i<columnCount;i++){
+				for(j=0;j<rowCount;j++){
+					if(j==0||j==rowCount-1){
+						brick_gotoAndStop(brick[i][j],3);
+					}else{
+						brick_gotoAndStop(brick[i][j],1);
+					}
+				}
+			}
+			brickLine(3,parseInt(columnCount*0.5),2,parseInt(columnCount*0.5),rowCount-3);
+			snakex=new Array(1,2,3,4,5);
+			snakey=new Array(rowCount-2,rowCount-2,rowCount-2,rowCount-2,rowCount-2);
+			break;
+		case 7:
+			for(i=0;i<columnCount;i++){
+				for(j=0;j<rowCount;j++){
+					brick_gotoAndStop(brick[i][j],1);
+				}
+			}
+			brickLine(3,2,0,columnCount-3,0);
+			brickLine(3,2,rowCount-1,columnCount-3,rowCount-1);
+			brickLine(3,0,1,0,rowCount-2);
+			brickLine(3,columnCount-1,1,columnCount-1,rowCount-2);
+			brickLine(3,parseInt((columnCount-1)*0.5)-2,2,2,parseInt((rowCount-1)*0.5)-2);
+			brickLine(3,parseInt((columnCount-1)*0.5)+2,2,columnCount-3,parseInt((rowCount-1)*0.5)-2);
+			brickLine(3,2,parseInt((rowCount-1)*0.5)+2,parseInt((columnCount-1)*0.5)-2,rowCount-3);
+			brickLine(3,columnCount-3,parseInt((rowCount-1)*0.5)+2,parseInt((columnCount-1)*0.5)+2,rowCount-3);
+			snakex=new Array(1,2,3,4,5);
+			snakey=new Array(rowCount-2,rowCount-2,rowCount-2,rowCount-2,rowCount-2);
+			break;
+		case 8:
+			for(i=0;i<columnCount;i++){
+				for(j=0;j<rowCount;j++){
+					brick_gotoAndStop(brick[i][j],1);
+				}
+			}
+			brickLine(3,0,2,0,rowCount-3);
+			brickLine(3,columnCount-1,2,columnCount-1,rowCount-3);
+			
+			var xstep=3;
+			var ystep=3;
+			i=0;
+			j=0;
+			var k=columnCount-1;
+			var l=rowCount-1;
+			do{
+				brickLine(3,i,j,k-xstep,j);
+				brickLine(3,i+xstep,l,k,l);
+				i+=xstep;
+				k-=xstep;
+				if(k-i<xstep){
+					break;
+				}
+				brickLine(3,i,j+ystep,i,l);
+				brickLine(3,k,j,k,l-ystep);
+				j+=ystep;
+				l-=ystep;
+			}while(l-j>=ystep);
+			snakex=new Array(1,1,1,1,1);
+			snakey=new Array(rowCount-2,rowCount-3,rowCount-4,rowCount-5,rowCount-6);
+			break;
+		case 9:
+			for(i=0;i<columnCount;i++){
+				for(j=0;j<rowCount;j++){
+					if((i&1)==1&&(j&1)==1){
+						brick_gotoAndStop(brick[i][j],3);
+					}else{
+						brick_gotoAndStop(brick[i][j],1);
+					}
+				}
+			}
+			snakex=new Array(1,2,3,4,5);
+			snakey=new Array(rowCount-2,rowCount-2,rowCount-2,rowCount-2,rowCount-2);
+			break;
+			case 10:for(i=0;
+			i<columnCount;
+			i++){
+				for(j=0;j<rowCount;j++){
+					if((j!=rowCount-1||i>=5)&&parseInt(Math.random()*3)!=0){
+						brick_gotoAndStop(brick[i][j],9);
+					}else{
+						brick_gotoAndStop(brick[i][j],1);
+					}
+				}
+			}
+			snakex=new Array(0,1,2,3,4);
+			snakey=new Array(rowCount-1,rowCount-1,rowCount-1,rowCount-1,rowCount-1);
+			break;
+	}
+	score=0;
+	playedtime=0;
+	sp1count=0;
+	tscore.value="0";
+	ttimer.value="0.0";
+	for(i=0;i<snakex.length-1;i++){
+		brick_gotoAndStop(brick[snakex[i]][snakey[i]],2);
+	}
+	brick_gotoAndStop(brick[snakex[i]][snakey[i]],6);
+	xf=snakex[snakex.length-1];
+	yf=snakey[snakey.length-1];
+	if(xf==columnCount-1&&snakex[snakex.length-2]==0){
+		xf=columnCount-2;
+	}else if(xf==0&&snakex[snakex.length-2]==columnCount-1){
+		xf=1;
+	}else{
+		xf+=xf-snakex[snakex.length-2];
+	}
+	if(yf==rowCount-1&&snakey[snakey.length-2]==0){
+		yf=rowCount-2;
+	}else if(yf==0&&snakey[snakey.length-2]==rowCount-1){
+		yf=1;
+	}else{
+		yf+=yf-snakey[snakey.length-2];
+	}
+	k=0;
+	if(mapid!=10){
+		do{
+			i=parseInt(Math.random()*columnCount);
+			j=parseInt(Math.random()*rowCount);
+			k++;
+		}while(brick[i][j].currentFrame!=1);// && k<100
+		brick_gotoAndStop(brick[i][j],9);
+	}
+	//btnpause.gotoAndStop(1);
+	hasFadingFood=false;
+	btnpause.value="Pause";
+}
+
+function fpause(event){
+	event=event||window.event;
+	if(document.onmouseup!=null){
+		return;
+	}
+	if(btnpause.value=="Pause"){
+		clearInterval(intervalID);
+		intervalID=0;
+		btnpause.value="Continue";
+	}else{
+		if(intervalID!=0){
+			clearInterval(intervalID);
+		}
+		intervalID=setInterval(snaketimer,interval);
+		btnpause.value="Pause";
+	}
+}
+function fpm(event){
+	event=event||window.event;
+	clearInterval(intervalID);
+	intervalID=0;
+	if(mapid==0){
+		mapid=0;
+	}else{
+		mapid--;
+	}
+	losed=false;
+	changeMap(mapid);
+	intervalID=setInterval(snaketimer,interval);
+}
+function fnm(event){
+	event=event||window.event;
+	clearInterval(intervalID);
+	intervalID=0;
+	if(mapid==10){
+		mapid=10;
+	}else{
+		mapid++;
+	}
+	losed=false;
+	changeMap(mapid);
+	intervalID=setInterval(snaketimer,interval);
+}
+function frt(event){
+	event=event||window.event;
+	if(document.onmouseup!=null){
+		document.onmouseup=null;
+	}else if(intervalID!=0){
+		clearInterval(intervalID);
+		intervalID=0;
+	}
+	losed=false;
+	changeMap(mapid);
+	intervalID=setInterval(snaketimer,interval);
+	//(new StartSound()).play();
+}
+function fmup(event){
+	event=event||window.event;
+	if(event){
+		updateMouseXY();
+	}
+	if(mouseY<container.offsetTop+container.offsetHeight){
+		document.onmouseup=null;
+		if(recordable){
+			//trace(score);
+		}
+		if(losed){
+			changeMap(mapid);
+		}
+		losed=false;
+		//if(intervalID!=0){
+		//	clearInterval=(intervalID);
+		//	intervalID=0;
+		//}
+		if(intervalID==0){
+			intervalID=setInterval(snaketimer,interval);
+		}
+		//(new StartSound()).play();
+	}
+}
+function updateMouseXY(event){
+	if(event && event.targetTouches && event.targetTouches.length>0){
+		updateMouseXY(event.targetTouches[0]);
+		return;
+	}
+	event=event||window.event;
+	if(event.pageX || event.pageY){ 
+		mouseX=event.pageX;
+		mouseY=event.pageY;
+		return;
+	}
+	mouseX=event.clientX + document.body.scrollLeft - document.body.clientLeft;
+	mouseY=event.clientY + document.body.scrollTop - document.body.clientTop;	 
+}
+//frame code found:1
+</script>
+</body>
+</html>
